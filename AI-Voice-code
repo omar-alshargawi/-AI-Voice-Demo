@@ -1,0 +1,54 @@
+import gradio as gr
+import whisper
+import cohere
+from gtts import gTTS
+import tempfile
+
+# Load Whisper model
+whisper_model = whisper.load_model("base")
+
+# Initialize Cohere (insert your API key securely)
+co = cohere.Client("YOUR_COHERE_API_KEY")  # Replace with your actual key or use environment variable
+
+def transcribe_and_reply(audio_file_path):
+    # Transcribe with Whisper (default language)
+    result = whisper_model.transcribe(audio_file_path)
+    input_text = result["text"]
+
+    # Enhanced prompt for more thoughtful and longer response
+    prompt = (
+        "You are a helpful and intelligent assistant. "
+        "Please give a detailed, thoughtful response to the following input:\n\n"
+        f"{input_text}"
+    )
+
+    # Generate response with Cohere
+    response = co.generate(
+        model="command-light",
+        prompt=prompt,
+        max_tokens=150,
+        temperature=0.7
+    )
+    response_text = response.generations[0].text.strip()
+
+    # Convert response to speech
+    tts = gTTS(response_text, lang="en")
+    tts_file = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+    tts.save(tts_file.name)
+
+    # Return transcription and audio reply
+    return input_text, tts_file.name
+
+# Gradio Interface
+iface = gr.Interface(
+    fn=transcribe_and_reply,
+    inputs=gr.Audio(type="filepath", label="🎙 Upload or Record Audio"),
+    outputs=[
+        gr.Textbox(label="🗣️ You said (transcription)", lines=2),
+        gr.Audio(label="🔊 AI Response (Voice)")
+    ],
+    title="🧠 Enhanced English Voice Assistant",
+    description="🎤 Upload or record audio → 🗣 See transcription → 🔊 Hear intelligent AI voice reply"
+)
+
+iface.launch()
